@@ -1,54 +1,72 @@
-import { Formik, useFormik } from 'formik';
+import { Formik, Form, useFormik } from 'formik';
 import { useState } from 'react';
 import * as Yup from 'yup';
 import Image from 'next/image';
 
 export default function HomePage() {
-  const [paymentType, setPaymentType] = useState('credit-card');
+  const [paymentType, setPaymentType] = useState('');
   const isCreditCard = 'credit-card' === paymentType;
-  const defaultFlag = '/icons/default.ico';
+  const defaultFlag = { src: '/icons/default.ico', name: 'Bandeira do cartão não reconhecida' };
   const [ccFlag, setCcFlag] = useState(defaultFlag);
   const paymentOptions = {
     'credit-card': 'credit_card',
     'bank-slip': 'boleto',
     pix: 'pix',
   };
-
+  const creditCardMask = (value: any): string => {
+    value = value.replace(/\D/g, '');
+    for (let i = 0; i < 4; i++) {
+      value = value.replace(/(\d{4})(\d)/, '$1 $2');
+    }
+    return value;
+  };
+  const creditCard6Mask = (value: any): string => {
+    value = value.replace(/\D/g, '');
+    value = value.replace(/(\d{4})(\d)/, '$1 $2');
+    value = value.replace(/(\d{6})(\d)/, '$1 $2');
+    return value;
+  };
   interface IFlag {
     pattern: RegExp;
     name: string;
     icon: any;
+    mask: any;
   }
 
   const flags = {
-    AMEX: { pattern: /^3[47][0-9]{13}$/, name: 'Amex', icon: '/icons/amex.ico' },
+    AMEX: { pattern: /^3[47][0-9]{13}$/, name: 'Amex', icon: '/icons/amex.ico', mask: creditCard6Mask },
     DINERS: {
       pattern: /^3(?:0[0-5]|[68][0-9])[0-9]{11}$/,
       name: 'Diners Club',
       icon: '/icons/diners.ico',
+      mask: creditCard6Mask,
     },
     DISCOVER: {
       pattern:
         /^65[4-9][0-9]{13}|64[4-9][0-9]{13}|6011[0-9]{12}|(622(?:12[6-9]|1[3-9][0-9]|[2-8][0-9][0-9]|9[01][0-9]|92[0-5])[0-9]{10})$/,
       name: 'Discover',
       icon: '/icons/discover.ico',
+      mask: creditCardMask,
     },
     ELO: {
       pattern:
         /^4011(78|79)|^43(1274|8935)|^45(1416|7393|763(1|2))|^50(4175|6699|67[0-6][0-9]|677[0-8]|9[0-8][0-9]{2}|99[0-8][0-9]|999[0-9])|^627780|^63(6297|6368|6369)|^65(0(0(3([1-3]|[5-9])|4([0-9])|5[0-1])|4(0[5-9]|[1-3][0-9]|8[5-9]|9[0-9])|5([0-2][0-9]|3[0-8]|4[1-9]|[5-8][0-9]|9[0-8])|7(0[0-9]|1[0-8]|2[0-7])|9(0[1-9]|[1-6][0-9]|7[0-8]))|16(5[2-9]|[6-7][0-9])|50(0[0-9]|1[0-9]|2[1-9]|[3-4][0-9]|5[0-8]))/,
       name: 'Elo',
       icon: '/icons/elo.ico',
+      mask: creditCardMask,
     },
     MASTERCARD: {
       pattern:
         /^((5(([1-2]|[4-5])[0-9]{8}|0((1|6)([0-9]{7}))|3(0(4((0|[2-9])[0-9]{5})|([0-3]|[5-9])[0-9]{6})|[1-9][0-9]{7})))|((508116)\\d{4,10})|((502121)\\d{4,10})|((589916)\\d{4,10})|(2[0-9]{15})|(67[0-9]{14})|(506387)\\d{4,10})/,
       name: 'Mastercard',
       icon: '/icons/mastercard.ico',
+      mask: creditCardMask,
     },
     VISA: {
       pattern: /^4[0-9]{15}$/,
       name: 'Visa',
       icon: '/icons/visa.ico',
+      mask: creditCardMask,
     },
   };
 
@@ -65,6 +83,22 @@ export default function HomePage() {
     mobile = mobile.replace(/\D/g, '');
     const pattern = /^([0-9]{2})([0-9]{5})([0-9]{4})$/;
     return mobile.match(pattern);
+  };
+
+  const validateExpDate = (date: any) => {
+    const invalid = '' === date || undefined === date || null === date;
+    if (invalid) return false;
+    if (5 === date.length) {
+      const numbers = date.split('/');
+      const day = new Date().getDay();
+      const month = parseInt(numbers[0]);
+      if (month > 12) return false;
+      const year = 2000 + parseInt(numbers[1]);
+      const expirationDate = new Date(year, month, day);
+      const currentDate = new Date();
+      return currentDate <= expirationDate;
+    }
+    return false;
   };
 
   const validateCpf = (cpfStr: any) => {
@@ -140,15 +174,8 @@ export default function HomePage() {
     return v;
   };
 
-  const creditCardMask = (value: string) => {
-    value = value.replace(/\D/g, '');
-    for (let i = 0; i < 4; i++) {
-      value = value.replace(/(\d{4})(\d)/, '$1 $2');
-    }
-    return value;
-  };
-
   const values = {
+    creditCard: false,
     name: '',
     email: '',
     mobile: '',
@@ -174,27 +201,39 @@ export default function HomePage() {
     mobile: Yup.string()
       .required('Obrigatório')
       .test('Celular', 'Celular inválido', value => validateMobile(value)),
+    creditCard: Yup.boolean(),
     number: Yup.number().required('Obrigatório'),
     address: Yup.string().required('Obrigatório'),
     neighborhood: Yup.string().required('Obrigatório'),
     city: Yup.string().required('Obrigatório'),
     state: Yup.string().required('Obrigatório'),
     zipCode: Yup.string().required('Obrigatório'),
-    ccNumber: Yup.string()
-      .required('Obrigatório')
-      .test('Número do Cartão', 'Número Inválido', value => validCreditCard(value)),
-    ccCVV: Yup.string().required('Obrigatório'),
-    ccName: Yup.string().required('Obrigatório'),
-    ccExp: Yup.string().required('Obrigatório'),
+    ccNumber: Yup.string().when('creditCard', {
+      is: true,
+      then: Yup.string()
+        .required('Obrigatório')
+        .test('Número do Cartão', 'Número Inválido', value => validCreditCard(value)),
+    }),
+    ccCVV: Yup.string().when('creditCard', {
+      is: true,
+      then: Yup.string().required('Obrigatório'),
+    }),
+    ccName: Yup.string().when('creditCard', {
+      is: true,
+      then: Yup.string().required('Obrigatório'),
+    }),
+    ccExp: Yup.string().when('creditCard', {
+      is: true,
+      then: Yup.string()
+        .required('Obrigatório')
+        .test('Data de Expiração', 'Data inválida', value => validateExpDate(value)),
+    }),
   });
 
   const formik = useFormik({
     initialValues: values,
     validationSchema: schema,
-
-    onSubmit: values => {
-      console.log(values);
-    },
+    onSubmit: values => {},
   });
 
   const handleDocumentChange = (event: { target: { value: any } }) => {
@@ -213,8 +252,8 @@ export default function HomePage() {
 
   const handleCreditCardChange = (event: { target: { value: any } }) => {
     const { value } = event.target;
+    formik.setFieldValue('ccNumber', value, true);
     handleFlag(value);
-    formik.setFieldValue('ccNumber', creditCardMask(value), true);
   };
 
   const handleFlag = (value: string) => {
@@ -225,12 +264,14 @@ export default function HomePage() {
       const current = flags[key];
       found = current.pattern.test(value);
       if (found) {
-        setCcFlag(current.icon);
+        setCcFlag({ src: current.icon, name: current.name });
+        formik.setFieldValue('ccNumber', current.mask(value), true);
         break;
       }
     }
     if (!found) {
       setCcFlag(defaultFlag);
+      formik.setFieldValue('ccNumber', creditCardMask(value), true);
     }
   };
 
@@ -269,7 +310,19 @@ export default function HomePage() {
 
   const handlePaymentOption = (event: { target: { value: any; id: any } }) => {
     const { id } = event.target;
+    console.log(id);
+    const value = 'credit-card' === id;
     setPaymentType(id);
+    formik.setFieldValue('creditCard', value);
+  };
+
+  const handleSubmit = async (event: any) => {
+    console.log('event', event);
+    event.preventDefault();
+  };
+
+  const handleClick = async (event: any) => {
+    console.log('formik.errors', formik.errors);
   };
 
   return (
@@ -284,11 +337,13 @@ export default function HomePage() {
             <Formik
               initialValues={values}
               validationSchema={schema}
-              onSubmit={(values, { setSubmitting }) => {
-                console.info(values);
-                setSubmitting(false);
-              }}>
-              <form className="">
+              onSubmit={async (values, { setSubmitting, resetForm }) => {
+                setSubmitting(true);
+                console.info('values', values);
+              }}
+              // onSubmit={handleSubmit}
+            >
+              <Form className="">
                 <div className="row g-3">
                   <div className="col-12">
                     <label htmlFor="name" className="form-label">
@@ -428,42 +483,75 @@ export default function HomePage() {
                 <div className="row g-3">
                   <h4 className="mb-3">Forma de pagamento</h4>
                   <div className="col-md-6">
-                    <div className="form-check">
+                    <div className="form-check form-check-inline">
                       <input
-                        id="credit-card"
-                        name="paymentMethod"
-                        type="radio"
                         className="form-check-input"
+                        type="radio"
+                        name="creditCard"
+                        id="credit-card"
+                        value="credit-card"
                         onChange={handlePaymentOption}
+                      />
+                      <label className="form-check-label" htmlFor="inlineRadio1">
+                        Cartão de Crédito
+                      </label>
+                    </div>
+                    <div className="form-check form-check-inline">
+                      <input
+                        className="form-check-input"
+                        type="radio"
+                        name="creditCard"
+                        id="bank-slip"
+                        value="bank-slip"
+                        onChange={handlePaymentOption}
+                      />
+                      <label className="form-check-label" htmlFor="inlineRadio2">
+                        Boleto
+                      </label>
+                    </div>
+                    <div className="form-check form-check-inline">
+                      <input
+                        className="form-check-input"
+                        type="radio"
+                        name="creditCard"
+                        id="pix"
+                        value="pix"
+                        onChange={handlePaymentOption}
+                      />
+                      <label className="form-check-label" htmlFor="inlineRadio3">
+                        Pix
+                      </label>
+                    </div>
+                    {/* <div className="form-check form-check-inline">
+                      <input
+                        className="form-check-input"
+                        type="radio"
+                        id="credit-card"
+                        name="credit-card"
+                        value="credit-card"
                       />
                       <label className="form-check-label" htmlFor="credit-card">
                         Cartão de Crédito
                       </label>
                     </div>
-                    <div className="form-check">
+                    <div className="form-check form-check-inline">
                       <input
-                        id="bank-slip"
-                        name="paymentMethod"
-                        type="radio"
                         className="form-check-input"
-                        onChange={handlePaymentOption}
+                        type="radio"
+                        id="bank-slip"
+                        name="bank-slip"
+                        value="bank-slip"
                       />
                       <label className="form-check-label" htmlFor="bank-slip">
                         Boleto
                       </label>
                     </div>
-                    <div className="form-check">
-                      <input
-                        id="pix"
-                        name="paymentMethod"
-                        type="radio"
-                        className="form-check-input"
-                        onChange={handlePaymentOption}
-                      />
+                    <div className="form-check form-check-inline">
+                      <input className="form-check-input" type="radio" id="pix" name="pix" value="pix" />
                       <label className="form-check-label" htmlFor="pix">
                         Pix
                       </label>
-                    </div>
+                    </div> */}
                   </div>
                   {isCreditCard ? (
                     <div className="col-md-6">
@@ -499,33 +587,7 @@ export default function HomePage() {
                               />
                             </div>
                             <div className="col-2">
-                              <Image src={ccFlag} alt="flag" width={24} height={16} />
-                              {/* <svg height={12} viewBox="0 0 638 234" version="1.1" xmlns="http://www.w3.org/2000/svg">
-                                <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-                                  <g id="elo" fill-rule="nonzero">
-                                    <path
-                                      d="M95.7,51.6 C102.5,49.3 109.8,48.1 117.4,48.1 C150.6,48.1 178.3,71.7 184.6,103 L231.6,93.4 C220.8,40.2 173.8,0.1 117.4,0.1 C104.5,0.1 92.1,2.2 80.5,6.1 L95.7,51.6 Z"
-                                      id="Shape"
-                                      fill="#FFF100"></path>
-                                    <path
-                                      d="M40.2,204 L72,168 C57.8,155.4 48.9,137.1 48.9,116.6 C48.9,96.2 57.8,77.8 72,65.3 L40.2,29.4 C16.1,50.8 0.9,81.9 0.9,116.7 C0.9,151.4 16.1,182.6 40.2,204 Z"
-                                      id="Shape"
-                                      fill="#00A3DF"></path>
-                                    <path
-                                      d="M184.6,130.4 C178.2,161.7 150.6,185.2 117.4,185.2 C109.8,185.2 102.5,184 95.6,181.7 L80.4,227.2 C92,231.1 104.5,233.2 117.4,233.2 C173.8,233.2 220.8,193.2 231.6,140 L184.6,130.4 Z"
-                                      id="Shape"
-                                      fill="#EE4023"></path>
-                                    <g id="Group" transform="translate(287.000000, 29.000000)" fill="#000000">
-                                      <path
-                                        d="M101.2,133.6 C93.4,141.2 82.9,145.8 71.3,145.6 C63.3,145.5 55.9,143.1 49.7,139.1 L34.1,163.9 C44.8,170.6 57.3,174.6 70.9,174.8 C90.6,175.1 108.6,167.3 121.7,154.6 L101.2,133.6 Z M73,32.5 C33.8,31.9 1.4,63.3 0.8,102.5 C0.6,117.2 4.8,131 12.3,142.4 L141.1,87.3 C133.9,56.4 106.3,33.1 73,32.5 Z M30.3,108.1 C30.1,106.5 30,104.8 30,103.1 C30.4,80 49.4,61.5 72.5,61.9 C85.1,62.1 96.3,67.8 103.8,76.8 L30.3,108.1 Z M181.6,0.5 L181.6,137.8 L205.4,147.7 L194.1,174.8 L170.5,165 C165.2,162.7 161.6,159.2 158.9,155.2 C156.3,151.2 154.3,145.6 154.3,138.2 L154.3,0.5 L181.6,0.5 Z"
-                                        id="Shape"></path>
-                                      <path
-                                        d="M267.5,64 C271.7,62.6 276.1,61.9 280.8,61.9 C301.1,61.9 317.9,76.3 321.8,95.4 L350.5,89.5 C343.9,57 315.2,32.6 280.8,32.6 C272.9,32.6 265.3,33.9 258.3,36.2 L267.5,64 Z M233.6,156.9 L253,135 C244.3,127.3 238.9,116.1 238.9,103.6 C238.9,91.1 244.4,79.9 253,72.3 L233.6,50.4 C218.9,63.4 209.6,82.5 209.6,103.7 C209.6,124.9 218.9,143.9 233.6,156.9 Z M321.8,112.1 C317.9,131.2 301,145.6 280.8,145.6 C276.2,145.6 271.7,144.8 267.5,143.4 L258.2,171.2 C265.3,173.6 272.9,174.9 280.8,174.9 C315.2,174.9 343.9,150.5 350.5,118 L321.8,112.1 Z"
-                                        id="Shape"></path>
-                                    </g>
-                                  </g>
-                                </g>
-                              </svg> */}
+                              <Image src={ccFlag.src} alt={ccFlag.name} width={24} height={16} />
                             </div>
                           </div>
                           {formik.touched.ccNumber && formik.errors.ccNumber ? (
@@ -573,11 +635,15 @@ export default function HomePage() {
 
                 <hr className="my-4" />
                 <footer className="mb-3 text-center">
-                  <button className="btn btn-primary btn-lg" type="submit">
+                  <button
+                    className="btn btn-primary btn-lg"
+                    type="submit"
+                    onClick={handleClick}
+                    disabled={!formik.isValid}>
                     {isCreditCard ? 'Pagar' : 'Gerar'}
                   </button>
                 </footer>
-              </form>
+              </Form>
             </Formik>
           </div>
         </div>
