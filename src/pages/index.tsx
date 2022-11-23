@@ -2,13 +2,24 @@ import { Formik, Form, useFormik } from 'formik';
 import { useState } from 'react';
 import * as Yup from 'yup';
 import Image from 'next/image';
+import { CreditCardData, IPayment, PaymentResponse, PaymentToken } from '../types/payment.interface';
+import axios from 'axios';
 
 export default function HomePage() {
-  const [paymentType, setPaymentType] = useState('');
-  const isCreditCard = 'credit-card' === paymentType;
+  const [paymentType, setPaymentType] = useState('credit_card');
+  const [sent, setSent] = useState(false);
+  const [url, setUrl] = useState('');
+  const [transaction, setTransaction] = useState<PaymentResponse>();
+  const isCreditCard = 'credit_card' === paymentType;
   const defaultFlag = { src: '/icons/default.ico', name: 'Bandeira do cartão não reconhecida' };
   const [ccFlag, setCcFlag] = useState(defaultFlag);
-  const paymentOptions = {
+  type options = {
+    [key: string]: string;
+  };
+  type options2 = {
+    [key: string]: string | undefined;
+  };
+  const paymentOptions: options = {
     'credit-card': 'credit_card',
     'bank-slip': 'boleto',
     pix: 'pix',
@@ -176,20 +187,20 @@ export default function HomePage() {
 
   const values = {
     creditCard: false,
-    name: '',
-    email: '',
-    mobile: '',
-    document: '',
-    number: '',
-    address: '',
-    neighborhood: '',
-    city: '',
-    state: '',
-    zipCode: '',
-    ccNumber: '',
-    ccCVV: '',
-    ccName: '',
-    ccExp: '',
+    name: 'Iago Francisco Novaes',
+    email: 'claudio.hirakawa@inteegra.com.br',
+    mobile: '(84) 99603-5325',
+    document: '958.571.460-46',
+    number: '554',
+    address: 'Rua Patrício Alves',
+    neighborhood: 'Mãe Luiza',
+    city: 'Natal',
+    state: 'RN',
+    zipCode: '59014-310',
+    ccNumber: '4111111111111111',
+    ccCVV: '974',
+    ccName: 'Claudio Hirakawa',
+    ccExp: '05/29',
   };
 
   const schema = Yup.object({
@@ -201,7 +212,7 @@ export default function HomePage() {
     mobile: Yup.string()
       .required('Obrigatório')
       .test('Celular', 'Celular inválido', value => validateMobile(value)),
-    creditCard: Yup.boolean(),
+    creditCard: Yup.boolean().default(false),
     number: Yup.number().required('Obrigatório'),
     address: Yup.string().required('Obrigatório'),
     neighborhood: Yup.string().required('Obrigatório'),
@@ -310,19 +321,100 @@ export default function HomePage() {
 
   const handlePaymentOption = (event: { target: { value: any; id: any } }) => {
     const { id } = event.target;
-    console.log(id);
     const value = 'credit-card' === id;
-    setPaymentType(id);
+    console.log(value);
+    const option = paymentOptions[id];
+    setPaymentType(option);
+    setUrl('');
     formik.setFieldValue('creditCard', value);
   };
 
-  const handleSubmit = async (event: any) => {
-    console.log('event', event);
-    event.preventDefault();
-  };
-
   const handleClick = async (event: any) => {
-    console.log('formik.errors', formik.errors);
+    console.log('formik.values', formik.values);
+    const token =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsb2dpbiI6Ijk1ZTcyMDAxMjMzN2I2OTQ4ZWIzNzZjYjM5OGY4YzliZTY4NTg2MWI3M2RhYWJlMTdiNTlhYWM2NTlmNzIyMDhhNGMxZTg3MzkzZGQ1ZDE3ZTU4MGIyNmRiZjViMWQ4YWMzMmUyMTI0YTVjZmY5MjI3OTUxMDNjMWFmZWMyN2MxZjBmYzk4N2I1M2QzYTY1MjlkYWUyMTMyYWFjZDVlYzU2NWU5MzRjNGM1YTBjZDUyNmRkN2Q2OGE1MWY5M2I2MSIsImlhdCI6MTY2OTIxMjYyMiwiZXhwIjoxNjY5Mjk5MDIyfQ.9HocYFOIx2JNZXpy6AXz7qykK9Y6895VwMnu3VhGyoc';
+    const baseURL = 'https://gateway-mobile-plus.inteegrav2.com.br/pay';
+    const config = {
+      headers: { Authorization: `Bearer ${token}` },
+    };
+    const api = axios.create({ baseURL });
+    let creditCardToken = '';
+
+    if (isCreditCard) {
+      const accountID = '8DCEF6684631480C9B080755FB959447';
+      const strDateArray = formik.values.ccExp.split('/');
+      const month = strDateArray[0];
+      const year = `20${strDateArray[1]}`;
+      const strFullNameArray = formik.values.ccName.split(' ');
+      const firstName = strFullNameArray[0];
+      const lastName = strFullNameArray[strFullNameArray.length - 1];
+
+      const creditCardData: CreditCardData = {
+        first_name: firstName,
+        last_name: lastName,
+        month: month,
+        year: year,
+        number: formik.values.ccNumber,
+        verification_value: formik.values.ccCVV,
+      };
+
+      await api
+        .post('/payment_token', creditCardData, config)
+        .then(response => {
+          console.log(response.data);
+          creditCardToken = response.data.id;
+        })
+        .catch(error => {
+          console.log(error.response.data);
+        });
+    }
+
+    const payment: IPayment = {
+      billing: {
+        address: formik.values.address,
+        city: formik.values.city,
+        neighborhood: formik.values.neighborhood,
+        number: formik.values.number,
+        state: formik.values.state,
+        zipCode: formik.values.zipCode,
+      },
+      customer: {
+        document: formik.values.document,
+        email: formik.values.email,
+        mobile: formik.values.mobile,
+        name: formik.values.name,
+      },
+      eventId: 'ab4d88fc-86c0-4998-b077-3a0b6232d155',
+      paymentType: paymentType,
+      products: [
+        {
+          id: 'c46feda5-0de8-4ff7-9982-adf5a3f7a2fe',
+          quantity: 1,
+        },
+      ],
+      installments: 1,
+      token: creditCardToken,
+    };
+
+    console.log(paymentType);
+
+    await api
+      .post('/transactions', payment, config)
+      .then(response => {
+        console.log(response.data);
+        const data: PaymentResponse = response.data;
+        if (paymentType === 'credit_card') {
+          setUrl(data.credit_card.pdf);
+        } else if (paymentType === 'boleto') {
+          setUrl(data.boleto.barcode);
+        } else if (paymentType === 'pix') {
+          setUrl(data.pix.qrcode);
+        }
+        setSent(true);
+      })
+      .catch(error => {
+        console.log(error.response.data);
+      });
   };
 
   return (
@@ -340,9 +432,7 @@ export default function HomePage() {
               onSubmit={async (values, { setSubmitting, resetForm }) => {
                 setSubmitting(true);
                 console.info('values', values);
-              }}
-              // onSubmit={handleSubmit}
-            >
+              }}>
               <Form className="">
                 <div className="row g-3">
                   <div className="col-12">
@@ -522,36 +612,6 @@ export default function HomePage() {
                         Pix
                       </label>
                     </div>
-                    {/* <div className="form-check form-check-inline">
-                      <input
-                        className="form-check-input"
-                        type="radio"
-                        id="credit-card"
-                        name="credit-card"
-                        value="credit-card"
-                      />
-                      <label className="form-check-label" htmlFor="credit-card">
-                        Cartão de Crédito
-                      </label>
-                    </div>
-                    <div className="form-check form-check-inline">
-                      <input
-                        className="form-check-input"
-                        type="radio"
-                        id="bank-slip"
-                        name="bank-slip"
-                        value="bank-slip"
-                      />
-                      <label className="form-check-label" htmlFor="bank-slip">
-                        Boleto
-                      </label>
-                    </div>
-                    <div className="form-check form-check-inline">
-                      <input className="form-check-input" type="radio" id="pix" name="pix" value="pix" />
-                      <label className="form-check-label" htmlFor="pix">
-                        Pix
-                      </label>
-                    </div> */}
                   </div>
                   {isCreditCard ? (
                     <div className="col-md-6">
@@ -643,6 +703,11 @@ export default function HomePage() {
                     {isCreditCard ? 'Pagar' : 'Gerar'}
                   </button>
                 </footer>
+                {sent ? (
+                  <div className="">
+                    <iframe src={url} style={{ height: '100vh', width: '100%' }} />
+                  </div>
+                ) : null}
               </Form>
             </Formik>
           </div>
