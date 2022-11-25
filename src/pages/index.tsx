@@ -2,22 +2,19 @@ import { Formik, Form, useFormik } from 'formik';
 import { useState } from 'react';
 import * as Yup from 'yup';
 import Image from 'next/image';
-import { CreditCardData, IPayment, PaymentResponse, PaymentToken } from '../types/payment.interface';
+import { CreditCardData, IPayment, PaymentResponse } from '../types/payment.interface';
 import axios from 'axios';
 
 export default function HomePage() {
   const [paymentType, setPaymentType] = useState('credit_card');
   const [sent, setSent] = useState(false);
   const [url, setUrl] = useState('');
-  const [transaction, setTransaction] = useState<PaymentResponse>();
   const isCreditCard = 'credit_card' === paymentType;
   const defaultFlag = { src: '/icons/default.ico', name: 'Bandeira do cartão não reconhecida' };
   const [ccFlag, setCcFlag] = useState(defaultFlag);
+  const [clicked, setClicked] = useState(false);
   type options = {
     [key: string]: string;
-  };
-  type options2 = {
-    [key: string]: string | undefined;
   };
   const paymentOptions: options = {
     'credit-card': 'credit_card',
@@ -330,9 +327,11 @@ export default function HomePage() {
   };
 
   const handleClick = async (event: any) => {
+    setSent(false);
+    setClicked(true);
     console.log('formik.values', formik.values);
     const token =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsb2dpbiI6Ijk1ZTcyMDAxMjMzN2I2OTQ4ZWIzNzZjYjM5OGY4YzliZTY4NTg2MWI3M2RhYWJlMTdiNTlhYWM2NTlmNzIyMDhhNGMxZTg3MzkzZGQ1ZDE3ZTU4MGIyNmRiZjViMWQ4YWMzMmUyMTI0YTVjZmY5MjI3OTUxMDNjMWFmZWMyN2MxZjBmYzk4N2I1M2QzYTY1MjlkYWUyMTMyYWFjZDVlYzU2NWU5MzRjNGM1YTBjZDUyNmRkN2Q2OGE1MWY5M2I2MSIsImlhdCI6MTY2OTIxMjYyMiwiZXhwIjoxNjY5Mjk5MDIyfQ.9HocYFOIx2JNZXpy6AXz7qykK9Y6895VwMnu3VhGyoc';
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsb2dpbiI6Ijk1ZTcyMDAxMjMzN2I2OTQ4ZWIzNzZjYjM5OGY4YzliZTY4NTg2MWI3M2RhYWJlMTdiNTlhYWM2NTlmNzIyMDhhNGMxZTg3MzkzZGQ1ZDE3ZTU4MGIyNmRiZjViMWQ4YWMzMmUyMTI0YTVjZmY5MjI3OTUxMDNjMWFmZWMyN2MxZjBmYzk4N2I1M2QzYTY1MjlkYWUyMTMyYWFjZDVlYzU2NWU5MzRjNGM1YTBjZDUyNmRkN2Q2OGE1MWY5M2I2MSIsImlhdCI6MTY2OTM4MTk0NywiZXhwIjoxNjY5NDY4MzQ3fQ.TYZew5RwwF38P9uNWzNZMy07gJejiimgXiZgFP9nVEI';
     const baseURL = 'https://gateway-mobile-plus.inteegrav2.com.br/pay';
     const config = {
       headers: { Authorization: `Bearer ${token}` },
@@ -415,6 +414,7 @@ export default function HomePage() {
       .catch(error => {
         console.log(error.response.data);
       });
+    setClicked(false);
   };
 
   return (
@@ -703,6 +703,7 @@ export default function HomePage() {
                     {isCreditCard ? 'Pagar' : 'Gerar'}
                   </button>
                 </footer>
+                {clicked ? <Image src="/loading.gif" alt="teste" width={400} height={400} /> : null}
                 {sent ? (
                   <div className="">
                     <iframe src={url} style={{ height: '100vh', width: '100%' }} />
