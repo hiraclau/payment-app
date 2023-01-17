@@ -133,9 +133,6 @@ export default function HomePage() {
   const validCreditCard = (value: any) => {
     if ('' === value || undefined === value || null === value) return false;
     value = value.replace(/\D/g, '');
-    //if (/[^0-9-\s]+/.test(value)) return false;
-
-    // The Luhn Algorithm. It's so pretty.
     var nCheck = 0,
       nDigit = 0,
       bEven = false;
@@ -184,20 +181,20 @@ export default function HomePage() {
 
   const values = {
     creditCard: false,
-    name: 'Iago Francisco Novaes',
-    email: 'claudio.hirakawa@inteegra.com.br',
-    mobile: '(84) 99603-5325',
-    document: '958.571.460-46',
-    number: '554',
-    address: 'Rua Patrício Alves',
-    neighborhood: 'Mãe Luiza',
-    city: 'Natal',
-    state: 'RN',
-    zipCode: '59014-310',
-    ccNumber: '4111111111111111',
-    ccCVV: '974',
-    ccName: 'Claudio Hirakawa',
-    ccExp: '05/29',
+    name: '',
+    email: '',
+    mobile: '',
+    document: '',
+    number: '',
+    address: '',
+    neighborhood: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    ccNumber: '',
+    ccCVV: '',
+    ccName: '',
+    ccExp: '',
   };
 
   const schema = Yup.object({
@@ -330,17 +327,11 @@ export default function HomePage() {
     setSent(false);
     setClicked(true);
     console.log('formik.values', formik.values);
-    const token =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsb2dpbiI6Ijk1ZTcyMDAxMjMzN2I2OTQ4ZWIzNzZjYjM5OGY4YzliZTY4NTg2MWI3M2RhYWJlMTdiNTlhYWM2NTlmNzIyMDhhNGMxZTg3MzkzZGQ1ZDE3ZTU4MGIyNmRiZjViMWQ4YWMzMmUyMTI0YTVjZmY5MjI3OTUxMDNjMWFmZWMyN2MxZjBmYzk4N2I1M2QzYTY1MjlkYWUyMTMyYWFjZDVlYzU2NWU5MzRjNGM1YTBjZDUyNmRkN2Q2OGE1MWY5M2I2MSIsImlhdCI6MTY2OTM4MTk0NywiZXhwIjoxNjY5NDY4MzQ3fQ.TYZew5RwwF38P9uNWzNZMy07gJejiimgXiZgFP9nVEI';
-    const baseURL = 'https://gateway-mobile-plus.inteegrav2.com.br/pay';
-    const config = {
-      headers: { Authorization: `Bearer ${token}` },
-    };
+    const baseURL = process.env['NEXT_BASEURL'];
     const api = axios.create({ baseURL });
     let creditCardToken = '';
 
     if (isCreditCard) {
-      const accountID = '8DCEF6684631480C9B080755FB959447';
       const strDateArray = formik.values.ccExp.split('/');
       const month = strDateArray[0];
       const year = `20${strDateArray[1]}`;
@@ -358,7 +349,7 @@ export default function HomePage() {
       };
 
       await api
-        .post('/payment_token', creditCardData, config)
+        .post('/payment_token', creditCardData)
         .then(response => {
           console.log(response.data);
           creditCardToken = response.data.id;
@@ -383,11 +374,11 @@ export default function HomePage() {
         mobile: formik.values.mobile,
         name: formik.values.name,
       },
-      eventId: 'ab4d88fc-86c0-4998-b077-3a0b6232d155',
+      eventId: process.env['NEXT_EVENT_ID'] || '',
       paymentType: paymentType,
       products: [
         {
-          id: 'c46feda5-0de8-4ff7-9982-adf5a3f7a2fe',
+          id: process.env['NEXT_PRODUCT_ID'] || '',
           quantity: 1,
         },
       ],
@@ -398,7 +389,7 @@ export default function HomePage() {
     console.log(paymentType);
 
     await api
-      .post('/transactions', payment, config)
+      .post('/transactions', payment)
       .then(response => {
         console.log(response.data);
         const data: PaymentResponse = response.data;
